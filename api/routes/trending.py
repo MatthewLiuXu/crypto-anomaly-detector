@@ -44,7 +44,7 @@ async def _scan_token(token: str, cg_key: str, thresholds: dict, sem: asyncio.Se
         if not market_data:
             return []
 
-        anomalies = detect(token, market_data, tvl_data=tvl_data, news_data=None, thresholds=thresholds)
+        anomalies = detect(token, market_data, tvl_data=tvl_data, thresholds=thresholds)
 
         # Filter out info tier — sidebar should only show real signals
         real = [a for a in anomalies if a["severity"] != "info"]
