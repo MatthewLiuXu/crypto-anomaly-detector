@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>research/feed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-0: #0c0c0b;
+      --bg-1: #121211;
+      --bg-2: #181817;
+      --bg-3: #1f1f1d;
+      --border-0: #1e1e1c;
+      --border-1: #2a2a27;
+      --border-2: #3a3a36;
+      --text-0: #e4e4dc;
+      --text-1: #a8a8a0;
+      --text-2: #6a6a64;
+      --text-3: #3e3e3a;
+      --amber: #d4a826;
+      --amber-dim: rgba(212, 168, 38, 0.10);
+      --amber-mid: rgba(212, 168, 38, 0.25);
+      --green: #44c47a;
+      --green-dim: rgba(68, 196, 122, 0.10);
+      --red: #d4534a;
+      --red-dim: rgba(212, 83, 74, 0.10);
+      --blue: #5a9ad6;
+      --blue-dim: rgba(90, 154, 214, 0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--bg-0);
+      color: var(--text-0);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle scan-line texture */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .layout {
+      display: flex;
+      max-width: 1060px;
+      margin: 0 auto;
+      gap: 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .shell {
+      flex: 1;
+      min-width: 0;
+      max-width: 700px;
+      padding: 32px 20px 100px;
+    }
+
+    /* ── HEADER ── */
+    .hdr { margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--border-0); }
+    .hdr-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+    .hdr-badge {
+      font-size: 8px; font-weight: 700; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--amber);
+      background: var(--amber-dim); border: 1px solid var(--amber-mid);
+      padding: 2px 8px; border-radius: 2px;
+    }
+    .hdr-sub { font-size: 8px; letter-spacing: 3px; color: var(--text-3); text-transform: uppercase; }
+    .hdr-title {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 22px; font-weight: 600; color: var(--text-0); letter-spacing: -0.5px;
+    }
+    .hdr-title em { font-style: normal; color: var(--amber); }
+    .hdr-desc { font-size: 11px; color: var(--text-2); margin-top: 4px; line-height: 1.5; }
+
+    /* ── INPUT ── */
+    .input-box {
+      display: flex; gap: 6px;
+      background: var(--bg-1); border: 1px solid var(--border-0);
+      border-radius: 4px; padding: 5px; margin-bottom: 24px;
+      transition: border-color 0.15s;
+    }
+    .input-box:focus-within { border-color: var(--border-2); }
+    .input-caret {
+      padding: 9px 0 9px 10px; color: var(--amber);
+      font-size: 13px; user-select: none; flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .input-field {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text-0); font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px; padding: 9px 0;
+    }
+    .input-field::placeholder { color: var(--text-3); }
+    .input-btn {
+      padding: 7px 20px;
+      background: var(--amber-dim); border: 1px solid var(--amber-mid);
+      border-radius: 3px; color: var(--amber);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+      cursor: pointer; transition: all 0.12s;
+    }
+    .input-btn:hover { background: rgba(212, 168, 38, 0.18); }
+    .input-btn:disabled { opacity: 0.3; cursor: wait; }
+
+    /* ── PIPELINE ── */
+    .pipeline { margin-bottom: 20px; }
+    .pipeline-label {
+      font-size: 8px; font-weight: 700; letter-spacing: 3px;
+      color: var(--text-3); text-transform: uppercase; margin-bottom: 8px;
+    }
+    .stage {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px;
+      border: 1px solid var(--border-0);
+      border-radius: 3px; margin-bottom: 3px;
+      transition: all 0.25s;
+    }
+    .stage[data-status="waiting"] { opacity: 0.35; background: var(--bg-1); }
+    .stage[data-status="running"] { opacity: 1; background: #17160e; border-color: #33301a; }
+    .stage[data-status="done"] { opacity: 1; background: #0f1610; border-color: #1a331f; }
+    .stage[data-status="error"] { opacity: 1; background: #16100f; border-color: #331a1a; }
+    .stage-dot {
+      width: 14px; text-align: center; font-size: 11px; flex-shrink: 0;
+    }
+    .stage[data-status="waiting"] .stage-dot { color: var(--text-3); }
+    .stage[data-status="running"] .stage-dot { color: var(--amber); }
+    .stage[data-status="done"] .stage-dot { color: var(--green); }
+    .stage[data-status="error"] .stage-dot { color: var(--red); }
+    .stage-name {
+      font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; width: 58px; flex-shrink: 0;
+    }
+    .stage[data-status="waiting"] .stage-name { color: var(--text-3); }
+    .stage[data-status="running"] .stage-name { color: var(--amber); }
+    .stage[data-status="done"] .stage-name { color: var(--green); }
+    .stage[data-status="error"] .stage-name { color: var(--red); }
+    .stage-msg { font-size: 11px; color: var(--text-2); flex: 1; }
+
+    /* ── ANOMALY CARDS ── */
+    .feed-label {
+      font-size: 8px; font-weight: 700; letter-spacing: 3px;
+      color: var(--text-3); text-transform: uppercase; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .feed-label .count {
+      font-size: 9px; color: var(--text-2);
+      background: var(--bg-2); padding: 1px 6px; border-radius: 2px;
+    }
+    .card {
+      background: var(--bg-1);
+      border: 1px solid var(--border-0);
+      border-radius: 4px; margin-bottom: 5px;
+      overflow: hidden; transition: border-color 0.2s;
+      cursor: pointer;
+    }
+    .card:hover { border-color: var(--border-1); }
+    .card.expanded { border-color: var(--border-2); }
+    .card-head {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 13px 15px;
+    }
+    .sev-pip {
+      width: 7px; height: 7px; border-radius: 50%;
+      margin-top: 4px; flex-shrink: 0;
+    }
+    .sev-pip.high { background: var(--red); box-shadow: 0 0 6px var(--red-dim); }
+    .sev-pip.medium { background: var(--amber); }
+    .sev-pip.low { background: var(--text-2); }
+    .sev-pip.info { background: var(--text-3); opacity: 0.5; }
+    .sev-tag {
+      font-size: 8px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; padding: 1px 6px; border-radius: 2px;
+    }
+    .sev-tag.high { color: var(--red); background: var(--red-dim); border: 1px solid rgba(212,83,74,0.25); }
+    .sev-tag.medium { color: var(--amber); background: var(--amber-dim); border: 1px solid var(--amber-mid); }
+    .sev-tag.low { color: var(--text-1); background: var(--bg-3); border: 1px solid var(--border-1); }
+    .sev-tag.info { color: var(--text-2); background: var(--bg-2); border: 1px solid var(--border-0); }
+    .card-body { flex: 1; min-width: 0; }
+    .card-top { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; flex-wrap: wrap; }
+    .card-asset {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 13px; font-weight: 600; color: var(--text-0);
+    }
+    .card-metric {
+      font-size: 9px; font-weight: 500; letter-spacing: 0.5px;
+      color: var(--text-2); background: var(--bg-3);
+      padding: 1px 6px; border-radius: 2px;
+    }
+    .card-change {
+      font-size: 12px; font-weight: 700;
+    }
+    .card-change.up { color: var(--green); }
+    .card-change.down { color: var(--red); }
+    .card-change.neutral { color: var(--text-2); }
+    .card-headline {
+      font-size: 11.5px; line-height: 1.55; color: var(--text-1);
+    }
+    .card-meta {
+      display: flex; align-items: center; gap: 10px; margin-top: 7px;
+    }
+    .card-time { font-size: 9px; color: var(--text-3); }
+    .card-src { font-size: 9px; color: var(--text-3); letter-spacing: 0.3px; }
+    .card-expand {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 9px; font-weight: 500; letter-spacing: 0.5px;
+      color: var(--text-3); flex-shrink: 0;
+      margin-top: 3px; transition: all 0.15s;
+      padding: 2px 6px; border-radius: 2px;
+    }
+    .card:hover .card-expand { color: var(--amber); background: var(--amber-dim); }
+    .card.expanded .card-expand { color: var(--amber); }
+    .card-expand-arrow { transition: transform 0.12s; display: inline-block; }
+    .card.expanded .card-expand-arrow { transform: rotate(90deg); }
+
+    /* ── DRILL-DOWN ── */
+    .drill {
+      border-top: 1px solid var(--border-0);
+      padding: 16px 18px 18px;
+      background: var(--bg-0);
+      display: none;
+    }
+    .card.expanded .drill { display: block; }
+    .drill-loading {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--amber);
+    }
+    .drill-loading .spinner {
+      display: inline-block; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .drill-content { font-size: 12px; line-height: 1.65; }
+    .drill-content h2 {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 14px; font-weight: 600; color: var(--text-0);
+      margin: 0 0 10px 0;
+    }
+    .drill-content h3 {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--amber);
+      margin: 18px 0 5px 0; padding-bottom: 3px;
+      border-bottom: 1px solid var(--border-0);
+    }
+    .drill-content p { color: var(--text-1); margin: 4px 0; }
+    .drill-content strong { color: var(--text-0); font-weight: 600; }
+    .drill-content ul { margin: 4px 0 8px 0; padding: 0; list-style: none; }
+    .drill-content li { color: var(--text-1); margin: 2px 0; padding-left: 14px; position: relative; }
+    .drill-content li::before { content: '›'; position: absolute; left: 0; color: var(--text-3); }
+    .drill-content hr { border: none; border-top: 1px solid var(--border-0); margin: 14px 0; }
+    .signal-tag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: 1px; padding: 3px 10px; border-radius: 2px;
+      margin-top: 4px;
+    }
+    .signal-tag.accumulate { color: var(--green); background: var(--green-dim); border: 1px solid rgba(68,196,122,0.25); }
+    .signal-tag.monitor { color: var(--amber); background: var(--amber-dim); border: 1px solid var(--amber-mid); }
+    .signal-tag.reduce { color: var(--red); background: var(--red-dim); border: 1px solid rgba(212,83,74,0.25); }
+    .signal-tag.neutral { color: var(--text-2); background: var(--bg-3); border: 1px solid var(--border-1); }
+
+    /* ── EMPTY STATE ── */
+    .empty {
+      text-align: center; padding: 60px 20px;
+      color: var(--text-3); font-size: 11px; line-height: 1.6;
+    }
+    .empty-icon { font-size: 28px; margin-bottom: 12px; opacity: 0.3; }
+
+    /* ── FOOTER ── */
+    .foot {
+      margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--border-0);
+      display: flex; justify-content: space-between;
+      font-size: 8px; letter-spacing: 1.5px; color: var(--text-3); text-transform: uppercase;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 300px; flex-shrink: 0;
+      padding: 32px 0 100px 0;
+      border-left: 1px solid var(--border-0);
+      position: sticky; top: 0; align-self: flex-start;
+      max-height: 100vh; overflow-y: auto;
+    }
+    .sidebar-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px 12px; border-bottom: 1px solid var(--border-0); margin-bottom: 8px;
+    }
+    .sidebar-title {
+      font-size: 8px; font-weight: 700; letter-spacing: 3px;
+      color: var(--text-3); text-transform: uppercase;
+    }
+    .sidebar-refresh {
+      background: none; border: 1px solid var(--border-0); border-radius: 3px;
+      color: var(--text-3); font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px; padding: 2px 8px; cursor: pointer; transition: all 0.12s;
+    }
+    .sidebar-refresh:hover { color: var(--amber); border-color: var(--amber-mid); }
+    .sidebar-loading {
+      display: flex; align-items: center; gap: 6px;
+      padding: 16px; font-size: 10px; color: var(--text-3);
+    }
+    .sidebar-loading .spinner {
+      display: inline-block; animation: spin 0.8s linear infinite;
+    }
+    .sb-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 10px 16px; cursor: pointer;
+      border-bottom: 1px solid var(--border-0);
+      transition: background 0.12s;
+    }
+    .sb-item:hover { background: var(--bg-1); }
+    .sb-body { flex: 1; min-width: 0; }
+    .sb-top {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 3px; flex-wrap: wrap;
+    }
+    .sb-token {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 12px; font-weight: 600; color: var(--text-0);
+    }
+    .sb-metric {
+      font-size: 8px; font-weight: 500; letter-spacing: 0.5px;
+      color: var(--text-2); background: var(--bg-3);
+      padding: 0 5px; border-radius: 2px;
+    }
+    .sb-change { font-size: 11px; font-weight: 700; }
+    .sb-change.up { color: var(--green); }
+    .sb-change.down { color: var(--red); }
+    .sb-summary {
+      font-size: 10px; color: var(--text-2); line-height: 1.4;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sb-empty {
+      padding: 24px 16px; text-align: center;
+      font-size: 10px; color: var(--text-3); line-height: 1.5;
+    }
+
+    @media (max-width: 860px) {
+      .layout { flex-direction: column; }
+      .sidebar {
+        width: 100%; border-left: none; border-top: 1px solid var(--border-0);
+        position: static; max-height: none;
+      }
+    }
+    @media (max-width: 520px) {
+      .shell { padding: 20px 14px 80px; }
+      .hdr-title { font-size: 18px; }
+      .card-head { padding: 11px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+  <div class="shell">
+    <!-- HEADER -->
+    <div class="hdr">
+      <div class="hdr-row">
+        <span class="hdr-badge">LIVE</span>
+        <span class="hdr-sub">Anomaly Scanner v0.1</span>
+      </div>
+      <div class="hdr-title">research<em>/</em>feed</div>
+      <div class="hdr-desc">Enter a token. The scanner pulls live data, detects anomalies, and builds a prioritized feed. Click any item to drill down.</div>
+    </div>
+
+    <!-- INPUT -->
+    <div class="input-box">
+      <span class="input-caret">▸</span>
+      <input class="input-field" id="tokenInput" type="text" placeholder="Enter token — SUI, TAO, HYPE, ARB..." autofocus />
+      <button class="input-btn" id="scanBtn" onclick="startScan()">SCAN</button>
+    </div>
+
+    <!-- PIPELINE -->
+    <div class="pipeline" id="pipeline" style="display:none;">
+      <div class="pipeline-label">Pipeline</div>
+      <div class="stage" id="stg-resolve" data-status="waiting">
+        <div class="stage-dot">○</div>
+        <div class="stage-name">Resolve</div>
+        <div class="stage-msg" id="msg-resolve">Identifying token...</div>
+      </div>
+      <div class="stage" id="stg-scan" data-status="waiting">
+        <div class="stage-dot">○</div>
+        <div class="stage-name">Scan</div>
+        <div class="stage-msg" id="msg-scan">Searching for anomalies via web...</div>
+      </div>
+      <div class="stage" id="stg-rank" data-status="waiting">
+        <div class="stage-dot">○</div>
+        <div class="stage-name">Rank</div>
+        <div class="stage-msg" id="msg-rank">Prioritizing by severity...</div>
+      </div>
+    </div>
+
+    <!-- FEED -->
+    <div id="feedArea"></div>
+
+    <!-- EMPTY STATE -->
+    <div class="empty" id="emptyState">
+      <div class="empty-icon">⬡</div>
+      Enter a token ticker above to scan for anomalies.<br/>
+      The scanner pulls real-time data and flags what changed.
+    </div>
+
+    <!-- FOOTER -->
+    <div class="foot">
+      <span>Live web search · no cached data</span>
+      <span>Claude Sonnet 4</span>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-hdr">
+      <span class="sidebar-title">Trending Anomalies</span>
+      <button class="sidebar-refresh" onclick="loadTrending()">Refresh</button>
+    </div>
+    <div id="sidebarContent">
+      <div class="sidebar-loading" id="sidebarLoading">
+        <span class="spinner">&#x25D4;</span> Scanning watchlist...
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /.layout -->
+
+  <script>
+    const dots = { waiting: '○', running: '◔', done: '●', error: '✕' };
+    let lastScanData = null; // stores full scan response for drilldown
+
+    function setStage(id, status, msg) {
+      const el = document.getElementById('stg-' + id);
+      if (!el) return;
+      el.dataset.status = status;
+      el.querySelector('.stage-dot').textContent = dots[status] || '○';
+      if (msg) document.getElementById('msg-' + id).textContent = msg;
+    }
+
+    async function startScan() {
+      const input = document.getElementById('tokenInput');
+      const token = input.value.trim().toUpperCase();
+      if (!token) return;
+
+      const btn = document.getElementById('scanBtn');
+      btn.disabled = true;
+      btn.textContent = '···';
+
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('feedArea').innerHTML = '';
+      const pipeline = document.getElementById('pipeline');
+      pipeline.style.display = 'block';
+
+      ['resolve', 'scan', 'rank'].forEach(s => setStage(s, 'waiting'));
+
+      setStage('resolve', 'running', `Resolving ${token}...`);
+      setStage('scan', 'running', `Pulling market data, TVL, news...`);
+
+      try {
+        const res = await fetch('/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.detail || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        lastScanData = data;
+
+        setStage('resolve', 'done', `${data.resolved.name} (${data.resolved.coingecko_id})`);
+        setStage('scan', 'done', `${data.anomalies.length} anomalies detected`);
+
+        setStage('rank', 'running', 'Prioritizing...');
+        setStage('rank', 'done', `${data.anomalies.length} items ranked by severity`);
+
+        if (data.no_anomalies_message) {
+          document.getElementById('feedArea').innerHTML = `
+            <div class="empty">
+              <div class="empty-icon">✓</div>
+              ${escHtml(data.no_anomalies_message)}
+            </div>`;
+        } else {
+          renderFeed(token, data.anomalies);
+        }
+
+      } catch (err) {
+        setStage('resolve', 'error', 'Failed');
+        setStage('scan', 'error', err.message);
+        setStage('rank', 'error', 'Aborted');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'SCAN';
+    }
+
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function renderFeed(token, anomalies) {
+      const area = document.getElementById('feedArea');
+      area.innerHTML = '';
+
+      const label = document.createElement('div');
+      label.className = 'feed-label';
+      label.innerHTML = `<span>${escHtml(token)} Anomalies</span><span class="count">${anomalies.length}</span>`;
+      area.appendChild(label);
+
+      anomalies.forEach((a, i) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.id = 'card-' + i;
+
+        const changePct = a.change_pct != null
+          ? `<span class="card-change ${a.change_pct > 0 ? 'up' : a.change_pct < 0 ? 'down' : 'neutral'}">${a.change_pct > 0 ? '+' : ''}${a.change_pct}%</span>`
+          : '';
+
+        const headline = a.headline || `${a.metric} ${a.change_pct != null ? (a.change_pct > 0 ? '+' : '') + a.change_pct + '% ' : ''}(${a.comparison_window})`;
+
+        card.innerHTML = `
+          <div class="card-head" onclick="toggleCard(${i})">
+            <div class="sev-pip ${a.severity}"></div>
+            <div class="card-body">
+              <div class="card-top">
+                <span class="card-asset">${escHtml(token)}</span>
+                <span class="card-metric">${escHtml(a.metric)}</span>
+                <span class="sev-tag ${a.severity}">${escHtml(a.severity)}</span>
+                ${changePct}
+              </div>
+              <div class="card-headline">${escHtml(headline)}</div>
+              <div class="card-meta">
+                <span class="card-time">${a.detected_at ? new Date(a.detected_at).toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : a.comparison_window}</span>
+                <span class="card-src">${escHtml(a.comparison_window)}</span>
+                <span class="card-src">${escHtml(a.source)}</span>
+              </div>
+            </div>
+            <span class="card-expand">DRILL DOWN <span class="card-expand-arrow">▸</span></span>
+          </div>
+          <div class="drill" id="drill-${i}">
+            <div class="drill-loading" id="drill-loading-${i}" style="display:none;">
+              <span class="spinner">◔</span> Pulling live data and analyzing...
+            </div>
+            <div class="drill-content" id="drill-content-${i}"></div>
+          </div>
+        `;
+        area.appendChild(card);
+      });
+    }
+
+    const drillCache = {};
+
+    async function toggleCard(idx) {
+      const card = document.getElementById('card-' + idx);
+      const isExpanded = card.classList.contains('expanded');
+
+      document.querySelectorAll('.card.expanded').forEach(c => c.classList.remove('expanded'));
+
+      if (isExpanded) return;
+      card.classList.add('expanded');
+
+      if (drillCache[idx]) {
+        document.getElementById('drill-content-' + idx).innerHTML = drillCache[idx];
+        return;
+      }
+
+      const loadingEl = document.getElementById('drill-loading-' + idx);
+      const contentEl = document.getElementById('drill-content-' + idx);
+      loadingEl.style.display = 'flex';
+      contentEl.innerHTML = '';
+
+      try {
+        const anomaly = lastScanData.anomalies[idx];
+        const token = lastScanData.token;
+
+        const res = await fetch('/drilldown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, anomaly }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.detail || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        let html = renderMarkdown(data.analysis);
+
+        if (data.signal) {
+          const cls = { ACCUMULATE: 'accumulate', MONITOR: 'monitor', REDUCE: 'reduce', IGNORE: 'neutral' };
+          html += `<hr /><span class="signal-tag ${cls[data.signal] || 'neutral'}">SIGNAL: ${data.signal}</span>`;
+          if (data.signal_reason) {
+            html += `<p>${escHtml(data.signal_reason)}</p>`;
+          }
+        }
+
+        drillCache[idx] = html;
+        contentEl.innerHTML = html;
+      } catch (err) {
+        contentEl.innerHTML = `<p style="color:var(--red);">Error: ${err.message}</p>`;
+      }
+
+      loadingEl.style.display = 'none';
+    }
+
+    function renderMarkdown(md) {
+      if (!md) return '';
+      return md
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/\*\*SIGNAL:\s*(ACCUMULATE|MONITOR|REDUCE|IGNORE|NO SIGNAL)\*\*/g, (_, sig) => {
+          const cls = { ACCUMULATE: 'accumulate', MONITOR: 'monitor', REDUCE: 'reduce' };
+          return `<span class="signal-tag ${cls[sig] || 'neutral'}">SIGNAL: ${sig}</span>`;
+        })
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^- (.+)$/gm, '<ul><li>$1</li></ul>')
+        .replace(/<\/ul>\n?<ul>/g, '')
+        .replace(/^---$/gm, '<hr />')
+        .replace(/^(?!<[hus])((?!<).{2,})$/gm, '<p>$1</p>');
+    }
+
+    document.getElementById('tokenInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') startScan();
+    });
+
+    // ── SIDEBAR: Trending Anomalies ──
+
+    async function loadTrending() {
+      const content = document.getElementById('sidebarContent');
+      content.innerHTML = '<div class="sidebar-loading"><span class="spinner">&#x25D4;</span> Scanning watchlist...</div>';
+
+      try {
+        const res = await fetch('/trending', { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data.anomalies || data.anomalies.length === 0) {
+          content.innerHTML = '<div class="sb-empty">No significant anomalies across watchlist.<br/>All tokens within normal ranges.</div>';
+          return;
+        }
+
+        let html = '';
+        data.anomalies.forEach(a => {
+          const pct = a.change_pct != null
+            ? `<span class="sb-change ${a.change_pct > 0 ? 'up' : 'down'}">${a.change_pct > 0 ? '+' : ''}${a.change_pct}%</span>`
+            : '';
+          html += `
+            <div class="sb-item" onclick="scanFromSidebar('${escHtml(a.token)}')">
+              <div class="sev-pip ${a.severity}" style="margin-top:3px;"></div>
+              <div class="sb-body">
+                <div class="sb-top">
+                  <span class="sb-token">${escHtml(a.token)}</span>
+                  <span class="sb-metric">${escHtml(a.metric)}</span>
+                  <span class="sev-tag ${a.severity}">${escHtml(a.severity)}</span>
+                  ${pct}
+                </div>
+                <div class="sb-summary">${escHtml(a.summary)}</div>
+              </div>
+            </div>`;
+        });
+
+        const ts = new Date(data.scanned_at).toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+        html += `<div class="sb-empty">${data.scanned_tokens} tokens scanned at ${ts}</div>`;
+        content.innerHTML = html;
+      } catch (err) {
+        content.innerHTML = `<div class="sb-empty" style="color:var(--red);">Failed to load: ${escHtml(err.message)}</div>`;
+      }
+    }
+
+    function scanFromSidebar(token) {
+      document.getElementById('tokenInput').value = token;
+      startScan();
+    }
+
+    // Auto-load trending on page load
+    loadTrending();
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+price_change_24h:
+  high: 15
+  medium: 8
+  low: 5
+  info: 0
+
+price_change_7d:
+  high: 30
+  medium: 15
+  low: 10
+  info: 0
+
+tvl_change_1d:
+  high: 20
+  medium: 10
+  low: 5
+  info: 0
+
+tvl_change_7d:
+  high: 30
+  medium: 15
+  low: 8
+  info: 0
+
+volume_vs_mcap:
+  high: 0.20
+  medium: 0.12
+  low: 0.08
+  info: 0
+
+ath_proximity:
+  trigger: 10
