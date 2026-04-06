@@ -478,6 +478,7 @@
 
         const data = await res.json();
         lastScanData = data;
+        Object.keys(drillCache).forEach(k => delete drillCache[k]);
 
         setStage('resolve', 'done', `${data.resolved.name} (${data.resolved.coingecko_id})`);
         setStage('scan', 'done', `${data.anomalies.length} anomalies detected`);
