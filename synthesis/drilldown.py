@@ -69,6 +69,14 @@ async def generate_drilldown(token: str, anomaly: dict, api_key: str) -> dict:
         # Remove from signal line onward (signal is always at the end)
         lines = lines[:signal_line_idx]
 
+    # Remove trailing "### Signal" heading and "---" separator (frontend renders these)
+    while lines and lines[-1].strip() in ("", "---"):
+        lines.pop()
+    if lines and lines[-1].strip().lower() in ("### signal", "## signal"):
+        lines.pop()
+    while lines and lines[-1].strip() in ("", "---"):
+        lines.pop()
+
     # Also check if signal_reason wasn't on the same line but on the next line
     if signal and not signal_reason and signal_line_idx is not None:
         remaining = text.split("\n")[signal_line_idx + 1:]
