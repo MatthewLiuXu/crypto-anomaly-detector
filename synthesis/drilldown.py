@@ -45,14 +45,17 @@ async def generate_drilldown(token: str, anomaly: dict, api_key: str) -> dict:
         if block.type == "text":
             text += block.text
 
-    # Extract signal tag from the analysis
+    # Extract signal tag from the analysis and remove signal lines from the text
     signal = None
     signal_reason = None
-    for line in text.split("\n"):
+    signal_line_idx = None
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
         upper = line.upper()
         for tag in ["ACCUMULATE", "MONITOR", "REDUCE", "IGNORE"]:
             if f"SIGNAL: {tag}" in upper or f"SIGNAL:{tag}" in upper:
                 signal = tag
+                signal_line_idx = i
                 # Reason is rest of text after the tag
                 after = line.split(tag, 1)
                 if len(after) > 1 and after[1].strip().strip("*").strip():
@@ -61,8 +64,22 @@ async def generate_drilldown(token: str, anomaly: dict, api_key: str) -> dict:
         if signal:
             break
 
+    # Strip the signal line (and any trailing reason line) from the analysis body
+    if signal_line_idx is not None:
+        # Remove from signal line onward (signal is always at the end)
+        lines = lines[:signal_line_idx]
+
+    # Also check if signal_reason wasn't on the same line but on the next line
+    if signal and not signal_reason and signal_line_idx is not None:
+        remaining = text.split("\n")[signal_line_idx + 1:]
+        for line in remaining:
+            stripped = line.strip().strip("*").strip("—").strip("-").strip()
+            if stripped:
+                signal_reason = stripped
+                break
+
     return {
-        "analysis": text.strip(),
+        "analysis": "\n".join(lines).strip(),
         "signal": signal,
         "signal_reason": signal_reason,
     }
